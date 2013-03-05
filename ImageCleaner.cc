@@ -2,6 +2,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <stdio.h>
+#include <omp.h>
 
 #define PI	3.14159265
 #define TWO_PI  2 * PI
@@ -10,44 +11,53 @@
 void cpu_fftx(float *real_image, float *imag_image, int size_x, int size_y)
 {
   // Create some space for storing temporary values
-  float *realOutBuffer = new float[size_x];
-  float *imagOutBuffer = new float[size_x];
-
-  for(unsigned int x = 0; x < size_x; x++)
+  float *realOutBuffer;// = new float[size_x];
+  float *imagOutBuffer;// = new float[size_x];
+  // Local values
+  float fft_real, fft_imag, term, term_coefficient, term_coefficient_times_size_y, real_image_value, imag_image_value;
+  unsigned int x, y, n, x_offset, x_offset_plus_n, x_offset_plus_y;
+  #pragma omp parallel default(none) shared(real_image, imag_image) firstprivate(size_x, size_y) private(realOutBuffer, imagOutBuffer, fft_real, fft_imag, term, term_coefficient, term_coefficient_times_size_y, real_image_value, imag_image_value, x, y, n, x_offset, x_offset_plus_n, x_offset_plus_y)
   {
-    unsigned int x_offset = x*size_x; // For serial speedup
-    float term_coefficient_times_size_y = NEGATIVE_TWO_PI / size_y;
-    for(unsigned int y = 0; y < size_y; y++)
+  realOutBuffer = new float[size_x];
+  imagOutBuffer = new float[size_x];
+  #pragma omp for schedule(static)
+  for(x = 0; x < size_x; x++)
+  {
+    x_offset = x*size_x; // For serial speedup
+    term_coefficient_times_size_y = NEGATIVE_TWO_PI / size_y;
+    for(y = 0; y < size_y; y++)
     {
       // Compute the value for this index
       realOutBuffer[y] = 0.0f;
       imagOutBuffer[y] = 0.0f;
-      float term_coefficient = term_coefficient_times_size_y * y; // For serial speedup
+      term_coefficient = NEGATIVE_TWO_PI * y / size_y; // For serial speedup
       // Compute the frequencies for this index
-      for(unsigned int n = 0; n < size_y; n++)
+      for(n = 0; n < size_y; n++)
       {
-	//float term = -2 * PI * y * n / size_y;
-        unsigned int x_offset_plus_n = x_offset + n;
-        float real_image_value = real_image[x_offset_plus_n];
-        float imag_image_value = imag_image[x_offset_plus_n];
-	float term = term_coefficient * n;
-	float fft_real = cos(term);
-	float fft_imag = sin(term);
+        x_offset_plus_n = x_offset + n;
+        real_image_value = real_image[x_offset_plus_n];
+        imag_image_value = imag_image[x_offset_plus_n];
+	term = term_coefficient * n;
+	fft_real = cos(term);
+	fft_imag = sin(term);
 	realOutBuffer[y] += (real_image_value * fft_real) - (imag_image_value * fft_imag);
 	imagOutBuffer[y] += (imag_image_value * fft_real) + (real_image_value * fft_imag);
       }
     }
     // Write the buffer back to were the original values were
-    for(unsigned int y = 0; y < size_y; y++)
+    for(y = 0; y < size_y; y++)
     {
-      unsigned int x_offset_plus_y = x_offset + y;
+      x_offset_plus_y = x_offset + y;
       real_image[x_offset_plus_y] = realOutBuffer[y];
       imag_image[x_offset_plus_y] = imagOutBuffer[y];
     }
   }
-  // Reclaim some memory
   delete [] realOutBuffer;
   delete [] imagOutBuffer;
+  }
+  // Reclaim some memory
+  //delete [] realOutBuffer;
+  //delete [] imagOutBuffer;
 }
 
 // This is the same as the thing above, except it has a scaling factor added to it
