@@ -114,9 +114,11 @@ void cpu_filter(float *real_image, float *imag_image, int size_x, int size_y)
   int eight7X = size_x - eightX;
   int eightY = size_y/8;
   int eight7Y = size_y - eightY;
-  for(unsigned int x = 0; x < size_x; x++)
+  unsigned int x, y;
+  #pragma omp parallel for schedule(static) default(none) shared(real_image, imag_image) firstprivate(size_x, size_y, eightX, eight7X, eightY, eight7Y) private(x, y)
+  for(x = 0; x < size_x; x++)
   {
-    for(unsigned int y = 0; y < size_y; y++)
+    for(y = 0; y < size_y; y++)
     {
       if(!(x < eightX && y < eightY) &&
 	 !(x < eightX && y >= eight7Y) &&
