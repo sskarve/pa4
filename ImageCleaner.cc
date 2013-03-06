@@ -30,7 +30,8 @@ void cpu_fftx(float *real_image, float *imag_image, int size_x, int size_y, int 
       // Compute the value for this index
       realOutBuffer[y] = 0.0f;
       imagOutBuffer[y] = 0.0f;
-      term_coefficient = NEGATIVE_TWO_PI * y / size_y; // For serial speedup
+      term_coefficient = 2 * PI * y / size_y; // For serial speedup
+      if (scaling_factor == 1) term_coefficient *= -1;
       // Compute the frequencies for this index
       for(n = 0; n < size_y; n++)
       {
